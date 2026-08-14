@@ -76,6 +76,19 @@ await program.methods
   .accounts({ vault: vaultPk, recipient: claimant })
   .rpc();
 
+// ── Fetch state before cleanup closes the accounts ─────────
+
+const vault = await program.account.vault.fetch(vaultPk);
+console.log(vault.authority.toString());
+console.log(vault.totalDeposited.toString());
+
+const claim = await program.account.claimRecord.fetch(claimRecordPk);
+console.log(
+  Number(claim.claimedAt) === 0
+    ? "Unclaimed"
+    : `Claimed at ${new Date(Number(claim.claimedAt) * 1000)}`,
+);
+
 await program.methods
   .withdraw(new BN(300_000_000))
   .accounts({ vault: vaultPk, destination: wallet.publicKey })
@@ -97,19 +110,6 @@ await program.methods
   .accounts({ claimRecord: claimRecordPk, signer: claimant })
   .signers([claimantKeypair])
   .rpc();
-
-// ── Fetch state ─────────────────────────────────────────────
-
-const vault = await program.account.vault.fetch(vaultPk);
-console.log(vault.authority.toString());
-console.log(vault.totalDeposited.toString());
-
-const claim = await program.account.claimRecord.fetch(claimRecordPk);
-console.log(
-  Number(claim.claimedAt) === 0
-    ? "Unclaimed"
-    : `Claimed at ${new Date(Number(claim.claimedAt) * 1000)}`,
-);
 
 ```
 
