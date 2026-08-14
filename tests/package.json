@@ -4,13 +4,15 @@
   "type": "module",
   "packageManager": "bun@1.3.14",
   "scripts": {
-    "test": "./run-local.sh"
+    "test": "./run-local.sh",
+    "typecheck": "tsc"
   },
   "dependencies": {
     "@anchor-lang/core": "1.1.2",
     "@solana/web3.js": "1.98.4"
   },
   "devDependencies": {
-    "@types/bun": "1.3.14"
+    "@types/bun": "1.3.14",
+    "typescript": "7.0.2"
   }
 }

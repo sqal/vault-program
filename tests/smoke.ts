@@ -47,6 +47,11 @@ async function expectAnchorError(
   assert.fail(`Expected Anchor error ${expectedCode}`);
 }
 
+type AccountClient<T> = {
+  fetch(address: PublicKey): Promise<T>;
+  fetchNullable(address: PublicKey): Promise<T | null>;
+};
+
 const rpcUrl = requiredEnv("RPC_URL");
 const walletPath = requiredEnv("TEST_WALLET_PATH");
 const idlPath = requiredEnv("TEST_IDL_PATH");
@@ -61,6 +66,14 @@ const provider = new AnchorProvider(connection, wallet, {
 });
 const idl = JSON.parse(readFileSync(idlPath, "utf8"));
 const program = new Program(idl, provider);
+const accounts = program.account as unknown as {
+  vault: AccountClient<{
+    totalDeposited: BN;
+    totalClaimed: BN;
+    totalWithdrawn: BN;
+  }>;
+  claimRecord: AccountClient<{ claimedAt: BN }>;
+};
 const programData = PublicKey.findProgramAddressSync(
   [program.programId.toBuffer()],
   new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111"),
@@ -74,7 +87,7 @@ async function initVault(id: number[], authority = wallet.publicKey) {
 
   return {
     vault,
-    request: program.methods.initVault(id).accounts({
+    request: program.methods.initVault!(id).accounts({
       vault,
       authority,
       program: program.programId,
@@ -108,7 +121,7 @@ const { vault, request: initRequest } = await initVault(id);
 await initRequest.rpc();
 
 await program.methods
-  .deposit(new BN(1_000_000_000))
+  .deposit!(new BN(1_000_000_000))
   .accounts({
     vault,
     authority: wallet.publicKey,
@@ -116,17 +129,17 @@ await program.methods
   })
   .rpc();
 
-let vaultAccount: any = await program.account.vault.fetch(vault);
+let vaultAccount = await accounts.vault.fetch(vault);
 assert.equal(vaultAccount.totalDeposited.toString(), "1000000000");
 
 await program.methods
-  .closeVault()
+  .closeVault!()
   .accounts({ vault, authority: wallet.publicKey })
   .rpc();
 
 await expectAnchorError(
   program.methods
-    .deposit(new BN(1))
+    .deposit!(new BN(1))
     .accounts({
       vault,
       authority: wallet.publicKey,
@@ -143,7 +156,7 @@ const claimRecord = PublicKey.findProgramAddressSync(
 )[0];
 
 await program.methods
-  .setClaimable(new BN(500_000_000))
+  .setClaimable!(new BN(500_000_000))
   .accounts({
     vault,
     claimant: claimant.publicKey,
@@ -154,7 +167,7 @@ await program.methods
   .rpc();
 
 await program.methods
-  .claim()
+  .claim!()
   .accounts({
     vault,
     claimRecord,
@@ -164,12 +177,12 @@ await program.methods
   .rpc();
 
 assert.equal(await connection.getBalance(claimant.publicKey), 500_000_000);
-const claimAccount: any = await program.account.claimRecord.fetch(claimRecord);
+const claimAccount = await accounts.claimRecord.fetch(claimRecord);
 assert.ok(claimAccount.claimedAt.toNumber() > 0);
 
 await expectAnchorError(
   program.methods
-    .claim()
+    .claim!()
     .accounts({
       vault,
       claimRecord,
@@ -181,7 +194,7 @@ await expectAnchorError(
 );
 
 await program.methods
-  .withdrawAll()
+  .withdrawAll!()
   .accounts({
     vault,
     authority: wallet.publicKey,
@@ -189,18 +202,18 @@ await program.methods
   })
   .rpc();
 
-vaultAccount = await program.account.vault.fetch(vault);
+vaultAccount = await accounts.vault.fetch(vault);
 assert.equal(vaultAccount.totalClaimed.toString(), "500000000");
 assert.equal(vaultAccount.totalWithdrawn.toString(), "500000000");
 
 await program.methods
-  .cleanupClaimRecord()
+  .cleanupClaimRecord!()
   .accounts({ claimRecord, signer: claimant.publicKey })
   .signers([claimant])
   .rpc();
 
 await program.methods
-  .cleanupVault()
+  .cleanupVault!()
   .accounts({
     vault,
     authority: wallet.publicKey,
@@ -208,8 +221,8 @@ await program.methods
   })
   .rpc();
 
-assert.equal(await program.account.claimRecord.fetchNullable(claimRecord), null);
-assert.equal(await program.account.vault.fetchNullable(vault), null);
+assert.equal(await accounts.claimRecord.fetchNullable(claimRecord), null);
+assert.equal(await accounts.vault.fetchNullable(vault), null);
 
 console.log(
   "  ✓ Authorization, validation, lifecycle, and cleanup checks passed",
