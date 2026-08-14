@@ -9,6 +9,11 @@ The on-chain program uses a fixed `[u8; 32]` vault ID. Applications can use an e
 
 ## With Anchor
 
+The deployment script generates the local IDL and TypeScript type imported by
+this example at `target/idl/vault_program.json` and
+`target/types/vault_program.ts`. Both paths are build artifacts and are
+intentionally ignored by Git.
+
 ```bash
 npm install @coral-xyz/anchor @solana/web3.js
 ```
@@ -161,4 +166,5 @@ async function claimRecordPDA(vault: string, claimant: string) {
 }
 ```
 
-See the [IDL](../target/idl/vault_program.json) for instruction discriminators and account layouts.
+After building or deploying, inspect `target/idl/vault_program.json` locally for
+instruction discriminators and account layouts.

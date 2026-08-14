@@ -30,7 +30,8 @@ solana airdrop 2
 The script reads the program ID from the keypair and synchronizes it inside a
 disposable build copy. The placeholder IDs in `lib.rs` and `Anchor.toml` remain
 unchanged. Generated build artifacts are copied to the ignored `target/`
-directory after a successful deployment.
+directory after a successful deployment, including the IDL and TypeScript type
+used by Anchor clients.
 
 ## Deploy Script
 

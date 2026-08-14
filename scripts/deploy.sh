@@ -101,6 +101,7 @@ cp "$KEYPAIR" "$BUILD_REPO/target/deploy/vault_program-keypair.json"
 
 PROGRAM_SO="$BUILD_REPO/target/deploy/vault_program.so"
 IDL_FILE="$BUILD_REPO/target/idl/vault_program.json"
+TYPE_FILE="$BUILD_REPO/target/types/vault_program.ts"
 
 echo "Deploying..."
 solana program deploy "$PROGRAM_SO" \
@@ -117,9 +118,10 @@ if ! anchor idl init "$PROGRAM_ID" -f "$IDL_FILE" \
     "${ANCHOR_PROVIDER_ARGS[@]}"
 fi
 
-mkdir -p "$ROOT/target/deploy" "$ROOT/target/idl"
+mkdir -p "$ROOT/target/deploy" "$ROOT/target/idl" "$ROOT/target/types"
 cp "$PROGRAM_SO" "$ROOT/target/deploy/vault_program.so"
 cp "$IDL_FILE" "$ROOT/target/idl/vault_program.json"
+cp "$TYPE_FILE" "$ROOT/target/types/vault_program.ts"
 
 echo ""
 echo "Done! $PROGRAM_ID deployed to $CLUSTER"
