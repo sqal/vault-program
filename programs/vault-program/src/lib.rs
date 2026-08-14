@@ -590,3 +590,84 @@ fn transfer_lamports(from: &AccountInfo, to: &AccountInfo, amount: u64) -> Resul
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn vault(total_deposited: u64, total_claimed: u64, total_withdrawn: u64) -> Vault {
+        Vault {
+            authority: Pubkey::default(),
+            vault_id: [1; 32],
+            status: VaultStatus::Closed,
+            total_deposited,
+            total_claimed,
+            total_withdrawn,
+            bump: 0,
+        }
+    }
+
+    #[test]
+    fn records_a_normal_withdrawal() {
+        let mut vault = vault(100, 0, 0);
+
+        vault.record_withdrawal(40).unwrap();
+
+        assert_eq!(vault.total_withdrawn, 40);
+    }
+
+    #[test]
+    fn accounts_for_claims_before_withdrawals() {
+        let mut vault = vault(100, 30, 0);
+
+        vault.record_withdrawal(80).unwrap();
+
+        assert_eq!(vault.total_withdrawn, 70);
+    }
+
+    #[test]
+    fn records_multiple_withdrawals_cumulatively() {
+        let mut vault = vault(100, 0, 0);
+
+        vault.record_withdrawal(30).unwrap();
+        vault.record_withdrawal(20).unwrap();
+
+        assert_eq!(vault.total_withdrawn, 50);
+    }
+
+    #[test]
+    fn excludes_unsolicited_dust_from_tracked_withdrawals() {
+        let mut vault = vault(100, 30, 60);
+
+        vault.record_withdrawal(25).unwrap();
+
+        assert_eq!(vault.total_withdrawn, 70);
+    }
+
+    #[test]
+    fn leaves_accounting_unchanged_after_deposits_are_settled() {
+        let mut vault = vault(100, 40, 60);
+
+        vault.record_withdrawal(25).unwrap();
+
+        assert_eq!(vault.total_withdrawn, 60);
+    }
+
+    #[test]
+    fn handles_inconsistent_accounting_without_underflow() {
+        let mut vault = vault(100, 70, 40);
+
+        vault.record_withdrawal(10).unwrap();
+
+        assert_eq!(vault.total_withdrawn, 40);
+    }
+
+    #[test]
+    fn caps_tracked_withdrawals_at_u64_max() {
+        let mut vault = vault(u64::MAX, 0, u64::MAX - 5);
+
+        vault.record_withdrawal(10).unwrap();
+
+        assert_eq!(vault.total_withdrawn, u64::MAX);
+    }
+}
