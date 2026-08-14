@@ -1,7 +1,7 @@
 import { strict as assert } from "node:assert";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { AnchorProvider, BN, Program, Wallet } from "@coral-xyz/anchor";
+import { AnchorProvider, BN, Program, Wallet } from "@anchor-lang/core";
 import {
   Connection,
   Keypair,

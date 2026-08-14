@@ -15,11 +15,11 @@ this example at `target/idl/vault_program.json` and
 intentionally ignored by Git.
 
 ```bash
-npm install @coral-xyz/anchor @solana/web3.js
+bun add @anchor-lang/core@1.1.2 @solana/web3.js
 ```
 
 ```typescript
-import { Program, AnchorProvider, Wallet, BN } from "@coral-xyz/anchor";
+import { Program, AnchorProvider, Wallet, BN } from "@anchor-lang/core";
 import { Connection, PublicKey, Keypair } from "@solana/web3.js";
 import { createHash } from "node:crypto";
 import idl from "../target/idl/vault_program.json" with { type: "json" };
@@ -130,7 +130,7 @@ await program.methods
 Building instructions manually from the IDL is possible but verbose.
 
 ```bash
-npm install @solana/kit
+bun add @solana/kit
 ```
 
 ### PDA Derivation
