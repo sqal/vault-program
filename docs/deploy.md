@@ -5,6 +5,9 @@
 - [Anchor CLI](https://www.anchor-lang.com/docs/installation) v1.1.2
 - [Solana CLI](https://docs.solanalabs.com/cli/install) v1.18+
 
+On Windows, use WSL 2. Install the required tools and run the entire deployment
+workflow from a WSL terminal.
+
 > **⚠️ Security:** Never commit keypair files to git or share them. The program
 > keypair determines the deployed program address; the wallet keypair controls SOL
 > and becomes the upgrade authority. Keep secure offline backups of both.

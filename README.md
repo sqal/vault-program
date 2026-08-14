@@ -26,6 +26,9 @@ Built with [Anchor](https://www.anchor-lang.com/) framework.
 - Rust and Cargo
 - Bun (for the integration test)
 
+Windows is supported through WSL 2. Install the requirements and run all build,
+test, and deployment commands from a WSL terminal.
+
 ### Documentation
 
 - [Deployment guide](docs/deploy.md)
