@@ -22,6 +22,8 @@ solana-keygen new --no-bip39-passphrase -o target/deploy/vault_program-keypair.j
 # 3. Configure the Solana CLI wallet that will pay for deployment
 solana config set --url devnet
 solana airdrop 2
+solana balance
+# Repeat the airdrop if deployment later reports insufficient funds.
 
 # 4. Build, deploy to devnet, and publish the IDL
 ./scripts/deploy.sh
