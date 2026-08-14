@@ -12,7 +12,7 @@ Built with [Anchor](https://www.anchor-lang.com/) framework.
 
 - Upgrade-authority-controlled vault creation
 - PDA-based vault and claim-record accounts
-- SOL deposits, assigned payouts, and authority withdrawals
+- SOL deposits, authority-managed payouts, and withdrawals
 - Explicit open and closed lifecycle states
 - Rent recovery through vault and claim-record cleanup
 - Anchor client example and `@solana/kit` PDA helpers
@@ -66,14 +66,15 @@ every run.
 
 **Space:** 98 bytes (8 + 32 + 32 + 1 + 8 + 8 + 8 + 1)
 
-**ClaimRecord** — Tracks how much a claimant can claim.
+**ClaimRecord** — Tracks a payout that the vault authority may process for a
+claimant. It does not reserve or escrow SOL.
 
 | Field         | Type      | Description                          |
 | ------------- | --------- | ------------------------------------ |
 | `vault`       | `Pubkey`  | Associated vault address             |
 | `authority`   | `Pubkey`  | Vault authority at time of creation  |
 | `claimant`    | `Pubkey`  | Wallet that gets the payout         |
-| `amount`      | `u64`     | How much they can claim (lamports)   |
+| `amount`      | `u64`     | Authority-managed payout (lamports)  |
 | `claimed_at`  | `i64`     | Unix timestamp of claim (0 if unclaimed) |
 | `bump`        | `u8`      | PDA bump seed                        |
 
@@ -134,7 +135,9 @@ Locks the vault, preventing further deposits. Enables claims, withdrawals, and c
 
 ### `set_claimable(amount: u64)`
 
-Creates a `ClaimRecord` PDA for a claimant, recording their amount. No SOL is transferred yet.
+Creates a `ClaimRecord` PDA for a claimant, recording an intended payout. No SOL
+is transferred or reserved. The authority can still withdraw funds before the
+payout is processed, so a claim record is not a funding guarantee.
 
 - **Signer:** `authority` (vault authority)
 - **Accounts:** vault (mut), claimant (unchecked), claim_record (init), authority (mut), system_program
@@ -142,7 +145,9 @@ Creates a `ClaimRecord` PDA for a claimant, recording their amount. No SOL is tr
 
 ### `claim()`
 
-Pays out a claimant. Authority signs, SOL transfers directly from vault to recipient.
+Pays out a claimant. The authority—not the claimant—must sign, and SOL transfers
+directly from the vault to the recipient. Claimants cannot redeem records
+independently.
 
 - **Signer:** `authority` (vault authority)
 - **Accounts:** vault (mut), claim_record (mut), authority, recipient (mut)

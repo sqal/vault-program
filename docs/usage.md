@@ -2,6 +2,11 @@
 
 The on-chain program uses a fixed `[u8; 32]` vault ID. Applications can use an existing 32-byte identifier or deterministically hash a human-readable string. Only `init_vault` receives the ID as instruction data; later instructions receive the vault account explicitly.
 
+> [!IMPORTANT]
+> Claims are authority-controlled. `set_claimable` records an intended payout
+> but does not reserve SOL, and `claim` requires the vault authority's signature.
+> A claimant cannot redeem a claim record independently.
+
 ## With Anchor
 
 ```bash
