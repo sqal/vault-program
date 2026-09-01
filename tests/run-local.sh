@@ -118,6 +118,11 @@ echo "  ✓ Temporary program built"
 mkdir -p "$TEST_REPO/tests"
 cp "$ROOT/tests/smoke.ts" "$TEST_REPO/tests/smoke.ts"
 cp "$ROOT/tests/tsconfig.json" "$TEST_REPO/tests/tsconfig.json"
+mkdir -p "$TEST_REPO/tests/generated" "$ROOT/tests/generated"
+cp "$TEST_REPO/target/types/vault_program.ts" \
+  "$TEST_REPO/tests/generated/vault_program.ts"
+cp "$TEST_REPO/target/types/vault_program.ts" \
+  "$ROOT/tests/generated/vault_program.ts"
 ln -s "$ROOT/tests/node_modules" "$TEST_REPO/tests/node_modules"
 if ! bun x tsc --project "$TEST_REPO/tests/tsconfig.json"; then
   echo "Error: generated Anchor client type-check failed" >&2

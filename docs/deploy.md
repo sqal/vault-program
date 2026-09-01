@@ -39,6 +39,17 @@ unchanged. Generated build artifacts are copied to the ignored `target/`
 directory after a successful deployment, including the IDL and TypeScript type
 used by Anchor clients.
 
+## Configure Vault Creation
+
+After deployment, use the program upgrade authority once to initialize the
+`VaultConfig` PDA with the public key allowed to create vaults. Store the
+upgrade authority separately from the daily backend signer. The configured
+`vault_creator` can then create new vaults with `init_vault`, assigning an
+operational authority for each vault.
+
+All vault creation uses this configured flow; the upgrade authority does not
+need to be available for daily vault creation.
+
 ## Deploy Script
 
 ```bash
@@ -82,9 +93,10 @@ clusters.
 
 ## Program Upgrades
 
-The deploy wallet becomes the **upgrade authority** — the same key required by
-`init_vault`. Do not remove the upgrade authority while this program relies on
-it to authorize vault creation.
+The deploy wallet becomes the **upgrade authority**. It controls program
+upgrades and the `VaultConfig` vault-creator setting. Keep it separate from
+the daily vault authority where possible. Do not remove the upgrade authority:
+it is required for future upgrades and configuration changes.
 
 ```bash
 solana program set-upgrade-authority <PROGRAM_ID> \

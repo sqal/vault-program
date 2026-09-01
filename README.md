@@ -10,7 +10,8 @@ Built with [Anchor](https://www.anchor-lang.com/) framework.
 
 ## Features
 
-- Upgrade-authority-controlled vault creation
+- Upgrade-authority-controlled creator configuration
+- Separate vault creator and per-vault operational authority
 - PDA-based vault and claim-record accounts
 - SOL deposits, authority-managed payouts, and withdrawals
 - Explicit open and closed lifecycle states
@@ -84,12 +85,23 @@ claimant. It does not reserve or escrow SOL.
 
 **Space:** 121 bytes (8 + 32 + 32 + 32 + 8 + 8 + 1)
 
+**VaultConfig** — Stores the signer allowed to create vaults. It is
+created and updated only by the program upgrade authority.
+
+| Field           | Type     | Description                               |
+| --------------- | -------- | ----------------------------------------- |
+| `vault_creator` | `Pubkey` | Signer allowed to create vaults           |
+| `bump`          | `u8`     | PDA bump seed                             |
+
+**Space:** 41 bytes (8 + 32 + 1)
+
 ### PDA Seeds
 
 | Account       | Seeds                                        |
 | ------------- | -------------------------------------------- |
 | `Vault`       | `["vault", vault_id]`                        |
 | `ClaimRecord` | `["claim", vault_pubkey, claimant_pubkey]`   |
+| `VaultConfig` | `["vault_config"]`                         |
 
 ### Vault Lifecycle
 
@@ -111,14 +123,28 @@ Open ──deposit──► Open ──close_vault──► Closed
 
 ## Instructions
 
-### `init_vault(vault_id: [u8; 32])`
+### `initialize_vault_config(vault_creator: Pubkey)` / `set_vault_creator(vault_creator: Pubkey)`
 
-Creates a new vault PDA. Only the program's **upgrade authority** can call this — only the deployer can create vaults.
+Creates or updates the singleton `VaultConfig` PDA. Only the program upgrade
+authority can call these instructions. `vault_creator` must not be the default
+public key.
 
-- **Signer:** `authority` (must be program upgrade authority)
-- **Accounts:** vault (init), authority, program, program_data, system_program
-- **Validations:** `vault_id` cannot be all zeroes; authority must match `program_data.upgrade_authority_address`
+### `init_vault(vault_id: [u8; 32], vault_authority: Pubkey)`
+
+Creates a vault using the configured `vault_creator` as payer and signer, while
+recording the supplied `vault_authority` as the vault's operational authority.
+This separates daily vault operations from the program upgrade authority.
+
+- **Signer:** `vault_creator` (must match `VaultConfig.vault_creator`)
+- **Accounts:** vault (init), vault_config, vault_creator, system_program
+- **Validations:** `vault_id` and `vault_authority` must not be default values
 - **Status after:** `Open`
+
+### `transfer_vault_authority(new_authority: Pubkey)`
+
+Transfers control of one vault to a new non-default authority. Only the current
+vault authority can call it. Existing unclaimed claim records retain their
+recorded authority for cleanup; this instruction does not rewrite them.
 
 ### `deposit(amount: u64)`
 
@@ -210,6 +236,7 @@ Vault-independent — works even after the vault is closed.
 | `NothingToWithdraw`       | Nothing to withdraw                                        |
 | `Unauthorized`            | Unauthorized                                               |
 | `VaultAccountingMismatch` | Vault accounting mismatch                                  |
+| `InvalidAuthority`        | Invalid authority                                          |
 
 ## Security
 

@@ -9,7 +9,7 @@ import {
   SystemProgram,
   Transaction,
 } from "@solana/web3.js";
-import type { VaultProgram } from "../target/types/vault_program";
+import type { VaultProgram } from "./generated/vault_program";
 
 function requiredEnv(name: string): string {
   const value = process.env[name];
@@ -90,8 +90,16 @@ const programData = PublicKey.findProgramAddressSync(
   [program.programId.toBuffer()],
   new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111"),
 )[0];
+const vaultConfig = PublicKey.findProgramAddressSync(
+  [Buffer.from("vault_config")],
+  program.programId,
+)[0];
 
-async function initVault(id: number[], authority = wallet.publicKey) {
+async function initVault(
+  id: number[],
+  vaultAuthority: PublicKey,
+  vaultCreator: PublicKey,
+) {
   const vault = PublicKey.findProgramAddressSync(
     [Buffer.from("vault"), Buffer.from(id)],
     program.programId,
@@ -99,11 +107,10 @@ async function initVault(id: number[], authority = wallet.publicKey) {
 
   return {
     vault,
-    request: program.methods.initVault(id).accountsPartial({
+    request: program.methods.initVault(id, vaultAuthority).accountsPartial({
       vault,
-      authority,
-      program: program.programId,
-      programData,
+      vaultConfig,
+      vaultCreator,
       systemProgram: SystemProgram.programId,
     }),
   };
@@ -116,18 +123,87 @@ function claimRecordPda(vault: PublicKey, claimant: PublicKey): PublicKey {
   )[0];
 }
 
-const zeroId = new Array<number>(32).fill(0);
-const zeroVault = await initVault(zeroId);
-await waitForProgramExecution(() => zeroVault.request.rpc(), "InvalidVaultId");
-
 const unauthorized = Keypair.generate();
 const unauthorizedAirdrop = await connection.requestAirdrop(
   unauthorized.publicKey,
   1_000_000_000,
 );
 await connection.confirmTransaction(unauthorizedAirdrop, "confirmed");
+const vaultCreator = Keypair.generate();
+const vaultCreatorAirdrop = await connection.requestAirdrop(
+  vaultCreator.publicKey,
+  1_000_000_000,
+);
+await connection.confirmTransaction(vaultCreatorAirdrop, "confirmed");
+
+await waitForProgramExecution(
+  () =>
+    program.methods
+      .initializeVaultConfig(vaultCreator.publicKey)
+    .accountsPartial({
+        vaultConfig,
+        authority: unauthorized.publicKey,
+        program: program.programId,
+        programData,
+        systemProgram: SystemProgram.programId,
+      })
+      .signers([unauthorized])
+      .rpc(),
+  "Unauthorized",
+);
+
+await program.methods
+  .initializeVaultConfig(wallet.publicKey)
+  .accountsPartial({
+    vaultConfig,
+    authority: wallet.publicKey,
+    program: program.programId,
+    programData,
+    systemProgram: SystemProgram.programId,
+  })
+  .rpc();
+
+await expectAnchorError(
+  program.methods
+    .setVaultCreator(vaultCreator.publicKey)
+    .accountsPartial({
+      vaultConfig,
+      authority: unauthorized.publicKey,
+      program: program.programId,
+      programData,
+    })
+    .signers([unauthorized])
+    .rpc(),
+  "Unauthorized",
+);
+
+await program.methods
+  .setVaultCreator(vaultCreator.publicKey)
+  .accountsPartial({
+    vaultConfig,
+    authority: wallet.publicKey,
+    program: program.programId,
+    programData,
+  })
+  .rpc();
+
+const vaultConfigAccount = await program.account.vaultConfig.fetch(vaultConfig);
+assert.equal(
+  vaultConfigAccount.vaultCreator.toBase58(),
+  vaultCreator.publicKey.toBase58(),
+);
+
+const zeroId = new Array<number>(32).fill(0);
+const zeroVault = await initVault(zeroId, wallet.publicKey, vaultCreator.publicKey);
+await waitForProgramExecution(
+  () => zeroVault.request.signers([vaultCreator]).rpc(),
+  "InvalidVaultId",
+);
+
+const operationalAuthority = Keypair.generate();
 const unauthorizedVault = await initVault(
   vaultId("unauthorized-vault"),
+  operationalAuthority.publicKey,
   unauthorized.publicKey,
 );
 await expectAnchorError(
@@ -136,8 +212,49 @@ await expectAnchorError(
 );
 
 const id = vaultId("local-smoke-test");
-const { vault, request: initRequest } = await initVault(id);
-await initRequest.rpc();
+const { vault, request: initRequest } = await initVault(
+  id,
+  operationalAuthority.publicKey,
+  vaultCreator.publicKey,
+);
+const invalidAuthorityId = vaultId("invalid-authority-vault");
+const invalidAuthorityVault = await initVault(
+  invalidAuthorityId,
+  PublicKey.default,
+  vaultCreator.publicKey,
+);
+await expectAnchorError(
+  invalidAuthorityVault.request.signers([vaultCreator]).rpc(),
+  "InvalidAuthority",
+);
+
+await initRequest.signers([vaultCreator]).rpc();
+assert.equal(
+  (await program.account.vault.fetch(vault)).authority.toBase58(),
+  operationalAuthority.publicKey.toBase58(),
+);
+
+await expectAnchorError(
+  program.methods
+    .transferVaultAuthority(wallet.publicKey)
+    .accountsPartial({ vault, authority: wallet.publicKey })
+    .rpc(),
+  "ConstraintHasOne",
+);
+
+await program.methods
+  .transferVaultAuthority(wallet.publicKey)
+  .accountsPartial({
+    vault,
+    authority: operationalAuthority.publicKey,
+  })
+  .signers([operationalAuthority])
+  .rpc();
+assert.equal(
+  (await program.account.vault.fetch(vault)).authority.toBase58(),
+  wallet.publicKey.toBase58(),
+);
+
 
 await expectAnchorError(
   program.methods

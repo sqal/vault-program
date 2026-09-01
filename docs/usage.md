@@ -1,6 +1,6 @@
 # TypeScript Usage
 
-The on-chain program uses a fixed `[u8; 32]` vault ID. Applications can use an existing 32-byte identifier or deterministically hash a human-readable string. Only `init_vault` receives the ID as instruction data; later instructions receive the vault account explicitly.
+The on-chain program uses a fixed `[u8; 32]` vault ID. Applications can use an existing 32-byte identifier or deterministically hash a human-readable string. Vault-creation instructions receive the ID as instruction data; later instructions receive the vault account explicitly.
 
 > [!IMPORTANT]
 > Claims are authority-controlled. `set_claimable` records an intended payout
@@ -48,15 +48,42 @@ function programDataPDA(programId: PublicKey) {
   );
 }
 
+function vaultConfigPDA() {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("vault_config")],
+    program.programId,
+  );
+}
+
 // ── Instructions ─────────────────────────────────────────────
 
-// init_vault — only programData is unresolvable
-const vaultId = vaultIdFromString("my-vault-001");
-const [vaultPk] = vaultPDA(vaultId);
+// One-time setup by the upgrade authority. `vaultCreator` is the daily backend
+// signer permitted to create vaults.
+const vaultCreator = wallet.publicKey;
+const [vaultConfig] = vaultConfigPDA();
 const [programData] = programDataPDA(program.programId);
 await program.methods
-  .initVault(vaultId)
-  .accountsPartial({ programData })
+  .initializeVaultConfig(vaultCreator)
+  .accountsPartial({
+    vaultConfig,
+    authority: wallet.publicKey,
+    program: program.programId,
+    programData,
+    systemProgram: SystemProgram.programId,
+  })
+  .rpc();
+
+// Vault creation: creator and operational authority may differ.
+const vaultId = vaultIdFromString("my-vault-001");
+const [vaultPk] = vaultPDA(vaultId);
+await program.methods
+  .initVault(vaultId, wallet.publicKey)
+  .accountsPartial({
+    vault: vaultPk,
+    vaultConfig,
+    vaultCreator,
+    systemProgram: SystemProgram.programId,
+  })
   .rpc();
 
 // The vault account is explicit after initialization.

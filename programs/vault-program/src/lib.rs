@@ -7,26 +7,75 @@ declare_id!("11111111111111111111111111111111");
 
 const VAULT_ACCOUNT_SPACE: usize = 8 + 32 + 32 + 1 + 8 + 8 + 8 + 1;
 const CLAIM_RECORD_SPACE: usize = 8 + 32 + 32 + 32 + 8 + 8 + 1;
+const VAULT_CONFIG_SPACE: usize = 8 + 32 + 1;
 
 #[program]
 pub mod vault_program {
     use super::*;
 
-    pub fn init_vault(ctx: Context<InitVault>, vault_id: [u8; 32]) -> Result<()> {
-        require!(vault_id != [0u8; 32], VaultError::InvalidVaultId);
+    pub fn initialize_vault_config(
+        ctx: Context<InitializeVaultConfig>,
+        vault_creator: Pubkey,
+    ) -> Result<()> {
+        require!(
+            vault_creator != Pubkey::default(),
+            VaultError::InvalidAuthority
+        );
+
+        let vault_config = &mut ctx.accounts.vault_config;
+        vault_config.vault_creator = vault_creator;
+        vault_config.bump = ctx.bumps.vault_config;
+
+        emit!(VaultCreatorUpdated { vault_creator });
+        Ok(())
+    }
+
+    pub fn set_vault_creator(ctx: Context<SetVaultCreator>, vault_creator: Pubkey) -> Result<()> {
+        require!(
+            vault_creator != Pubkey::default(),
+            VaultError::InvalidAuthority
+        );
+
+        ctx.accounts.vault_config.vault_creator = vault_creator;
+        emit!(VaultCreatorUpdated { vault_creator });
+        Ok(())
+    }
+
+    pub fn init_vault(
+        ctx: Context<InitVault>,
+        vault_id: [u8; 32],
+        vault_authority: Pubkey,
+    ) -> Result<()> {
+        require!(
+            vault_authority != Pubkey::default(),
+            VaultError::InvalidAuthority
+        );
+
+        initialize_vault(
+            &mut ctx.accounts.vault,
+            vault_id,
+            vault_authority,
+            ctx.bumps.vault,
+        )
+    }
+
+    pub fn transfer_vault_authority(
+        ctx: Context<TransferVaultAuthority>,
+        new_authority: Pubkey,
+    ) -> Result<()> {
+        require!(
+            new_authority != Pubkey::default(),
+            VaultError::InvalidAuthority
+        );
 
         let vault = &mut ctx.accounts.vault;
-        vault.authority = ctx.accounts.authority.key();
-        vault.vault_id = vault_id;
-        vault.status = VaultStatus::Open;
-        vault.total_deposited = 0;
-        vault.total_claimed = 0;
-        vault.total_withdrawn = 0;
-        vault.bump = ctx.bumps.vault;
+        let previous_authority = vault.authority;
+        vault.authority = new_authority;
 
-        emit!(VaultInitialized {
-            vault_id,
-            authority: vault.authority,
+        emit!(VaultAuthorityTransferred {
+            vault_id: vault.vault_id,
+            previous_authority,
+            new_authority,
         });
 
         Ok(())
@@ -291,6 +340,12 @@ pub struct Vault {
     pub bump: u8,
 }
 
+#[account]
+pub struct VaultConfig {
+    pub vault_creator: Pubkey,
+    pub bump: u8,
+}
+
 impl Vault {
     fn record_withdrawal(&mut self, amount: u64) -> Result<()> {
         let accounted_remaining = self
@@ -325,6 +380,18 @@ pub enum VaultStatus {
 pub struct VaultInitialized {
     pub vault_id: [u8; 32],
     pub authority: Pubkey,
+}
+
+#[event]
+pub struct VaultCreatorUpdated {
+    pub vault_creator: Pubkey,
+}
+
+#[event]
+pub struct VaultAuthorityTransferred {
+    pub vault_id: [u8; 32],
+    pub previous_authority: Pubkey,
+    pub new_authority: Pubkey,
 }
 
 #[event]
@@ -372,16 +439,15 @@ pub struct ClaimRecordCleanedUp {
 }
 
 #[derive(Accounts)]
-#[instruction(vault_id: [u8; 32])]
-pub struct InitVault<'info> {
+pub struct InitializeVaultConfig<'info> {
     #[account(
         init,
         payer = authority,
-        space = VAULT_ACCOUNT_SPACE,
-        seeds = [b"vault".as_ref(), vault_id.as_ref()],
+        space = VAULT_CONFIG_SPACE,
+        seeds = [b"vault_config"],
         bump
     )]
-    pub vault: Account<'info, Vault>,
+    pub vault_config: Account<'info, VaultConfig>,
 
     #[account(mut)]
     pub authority: Signer<'info>,
@@ -398,6 +464,63 @@ pub struct InitVault<'info> {
     pub program_data: Account<'info, ProgramData>,
 
     pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct SetVaultCreator<'info> {
+    #[account(mut, seeds = [b"vault_config"], bump = vault_config.bump)]
+    pub vault_config: Account<'info, VaultConfig>,
+
+    pub authority: Signer<'info>,
+
+    #[account(
+        constraint = program.programdata_address()? == Some(program_data.key()) @ VaultError::Unauthorized
+    )]
+    pub program: Program<'info, crate::program::VaultProgram>,
+
+    #[account(
+        constraint = program_data.upgrade_authority_address.is_some() @ VaultError::Unauthorized,
+        constraint = program_data.upgrade_authority_address == Some(authority.key()) @ VaultError::Unauthorized
+    )]
+    pub program_data: Account<'info, ProgramData>,
+}
+
+#[derive(Accounts)]
+#[instruction(vault_id: [u8; 32])]
+pub struct InitVault<'info> {
+    #[account(
+        init,
+        payer = vault_creator,
+        space = VAULT_ACCOUNT_SPACE,
+        seeds = [b"vault".as_ref(), vault_id.as_ref()],
+        bump
+    )]
+    pub vault: Account<'info, Vault>,
+
+    #[account(
+        seeds = [b"vault_config"],
+        bump = vault_config.bump,
+        has_one = vault_creator @ VaultError::Unauthorized
+    )]
+    pub vault_config: Account<'info, VaultConfig>,
+
+    #[account(mut)]
+    pub vault_creator: Signer<'info>,
+
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct TransferVaultAuthority<'info> {
+    #[account(
+        mut,
+        seeds = [b"vault".as_ref(), vault.vault_id.as_ref()],
+        bump = vault.bump,
+        has_one = authority
+    )]
+    pub vault: Account<'info, Vault>,
+
+    pub authority: Signer<'info>,
 }
 
 #[derive(Accounts)]
@@ -567,6 +690,32 @@ pub enum VaultError {
     Unauthorized,
     #[msg("Vault accounting mismatch")]
     VaultAccountingMismatch,
+    #[msg("Invalid authority")]
+    InvalidAuthority,
+}
+
+fn initialize_vault(
+    vault: &mut Vault,
+    vault_id: [u8; 32],
+    authority: Pubkey,
+    bump: u8,
+) -> Result<()> {
+    require!(vault_id != [0u8; 32], VaultError::InvalidVaultId);
+
+    vault.authority = authority;
+    vault.vault_id = vault_id;
+    vault.status = VaultStatus::Open;
+    vault.total_deposited = 0;
+    vault.total_claimed = 0;
+    vault.total_withdrawn = 0;
+    vault.bump = bump;
+
+    emit!(VaultInitialized {
+        vault_id,
+        authority,
+    });
+
+    Ok(())
 }
 
 fn available_vault_lamports(vault_info: &AccountInfo) -> Result<u64> {
