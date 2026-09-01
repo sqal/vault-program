@@ -1,0 +1,15 @@
+{
+  "name": "vault-program",
+  "private": true,
+  "packageManager": "bun@1.3.14",
+  "workspaces": [
+    "tests"
+  ],
+  "scripts": {
+    "fmt": "oxfmt --write .",
+    "fmt:check": "oxfmt --check ."
+  },
+  "devDependencies": {
+    "oxfmt": "0.65.0"
+  }
+}

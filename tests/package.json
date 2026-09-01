@@ -1,8 +1,7 @@
 {
-  "name": "vault-program-tests",
+  "name": "tests",
   "private": true,
   "type": "module",
-  "packageManager": "bun@1.3.14",
   "scripts": {
     "test": "./run-local.sh",
     "typecheck": "./run-local.sh --typecheck"

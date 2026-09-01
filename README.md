@@ -42,8 +42,8 @@ temporary program ID and wallets, leaving the placeholders in this repository
 unchanged.
 
 ```bash
-cd tests
 bun install
+cd tests
 bun run test
 ```
 
@@ -59,48 +59,48 @@ every run. To retain a failed run's build and validator logs for diagnosis, run
 
 **Vault** — Holds deposited SOL for a single vault instance.
 
-| Field              | Type         | Description                       |
-| ------------------ | ------------ | --------------------------------- |
-| `authority`        | `Pubkey`     | Wallet that controls the vault    |
-| `vault_id`         | `[u8; 32]`   | Unique fixed-size vault identifier |
-| `status`           | `VaultStatus`| Current lifecycle state           |
-| `total_deposited`  | `u64`        | Cumulative lamports deposited     |
-| `total_claimed`    | `u64`        | Cumulative lamports claimed       |
-| `total_withdrawn`  | `u64`        | Withdrawals counted against tracked deposits |
-| `bump`             | `u8`         | PDA bump seed                     |
+| Field             | Type          | Description                                  |
+| ----------------- | ------------- | -------------------------------------------- |
+| `authority`       | `Pubkey`      | Wallet that controls the vault               |
+| `vault_id`        | `[u8; 32]`    | Unique fixed-size vault identifier           |
+| `status`          | `VaultStatus` | Current lifecycle state                      |
+| `total_deposited` | `u64`         | Cumulative lamports deposited                |
+| `total_claimed`   | `u64`         | Cumulative lamports claimed                  |
+| `total_withdrawn` | `u64`         | Withdrawals counted against tracked deposits |
+| `bump`            | `u8`          | PDA bump seed                                |
 
 **Space:** 98 bytes (8 + 32 + 32 + 1 + 8 + 8 + 8 + 1)
 
 **ClaimRecord** — Tracks a payout that the vault authority may process for a
 claimant. It does not reserve or escrow SOL.
 
-| Field         | Type      | Description                          |
-| ------------- | --------- | ------------------------------------ |
-| `vault`       | `Pubkey`  | Associated vault address             |
-| `authority`   | `Pubkey`  | Vault authority at time of creation  |
-| `claimant`    | `Pubkey`  | Wallet that gets the payout         |
-| `amount`      | `u64`     | Authority-managed payout (lamports)  |
-| `claimed_at`  | `i64`     | Unix timestamp of claim (0 if unclaimed) |
-| `bump`        | `u8`      | PDA bump seed                        |
+| Field        | Type     | Description                              |
+| ------------ | -------- | ---------------------------------------- |
+| `vault`      | `Pubkey` | Associated vault address                 |
+| `authority`  | `Pubkey` | Vault authority at time of creation      |
+| `claimant`   | `Pubkey` | Wallet that gets the payout              |
+| `amount`     | `u64`    | Authority-managed payout (lamports)      |
+| `claimed_at` | `i64`    | Unix timestamp of claim (0 if unclaimed) |
+| `bump`       | `u8`     | PDA bump seed                            |
 
 **Space:** 121 bytes (8 + 32 + 32 + 32 + 8 + 8 + 1)
 
 **VaultConfig** — Stores the signer allowed to create vaults. It is
 created and updated only by the program upgrade authority.
 
-| Field           | Type     | Description                               |
-| --------------- | -------- | ----------------------------------------- |
-| `vault_creator` | `Pubkey` | Signer allowed to create vaults           |
-| `bump`          | `u8`     | PDA bump seed                             |
+| Field           | Type     | Description                     |
+| --------------- | -------- | ------------------------------- |
+| `vault_creator` | `Pubkey` | Signer allowed to create vaults |
+| `bump`          | `u8`     | PDA bump seed                   |
 
 **Space:** 41 bytes (8 + 32 + 1)
 
 ### PDA Seeds
 
-| Account       | Seeds                                        |
-| ------------- | -------------------------------------------- |
-| `Vault`       | `["vault", vault_id]`                        |
-| `ClaimRecord` | `["claim", vault_pubkey, claimant_pubkey]`   |
+| Account       | Seeds                                      |
+| ------------- | ------------------------------------------ |
+| `Vault`       | `["vault", vault_id]`                      |
+| `ClaimRecord` | `["claim", vault_pubkey, claimant_pubkey]` |
 | `VaultConfig` | `["vault_config"]`                         |
 
 ### Vault Lifecycle
@@ -213,6 +213,7 @@ Any unsolicited SOL dust is drained before closing.
 ### `cleanup_claim_record()`
 
 Closes a claim record and gets rent back. Two ways:
+
 - **Claimed records:** The **claimant** signs to get their rent back
 - **Unclaimed records:** The **authority** signs to clean up abandoned records
 
@@ -223,20 +224,20 @@ Vault-independent — works even after the vault is closed.
 
 ## Error Codes
 
-| Code                      | Message                                                    |
-| ------------------------- | ---------------------------------------------------------- |
-| `InvalidVaultId`          | Invalid vault ID                                           |
-| `InvalidAmount`           | Invalid amount                                             |
-| `InvalidVaultStatus`      | Vault is not in the correct status for this operation      |
-| `InsufficientFunds`       | Insufficient funds in vault                                |
-| `Overflow`                | Arithmetic overflow                                        |
-| `AlreadyClaimed`          | Payout already claimed                                     |
-| `InvalidClaimRecord`      | Claim record does not match expected claimant              |
-| `NothingToClaim`          | Nothing to claim                                           |
-| `NothingToWithdraw`       | Nothing to withdraw                                        |
-| `Unauthorized`            | Unauthorized                                               |
-| `VaultAccountingMismatch` | Vault accounting mismatch                                  |
-| `InvalidAuthority`        | Invalid authority                                          |
+| Code                      | Message                                               |
+| ------------------------- | ----------------------------------------------------- |
+| `InvalidVaultId`          | Invalid vault ID                                      |
+| `InvalidAmount`           | Invalid amount                                        |
+| `InvalidVaultStatus`      | Vault is not in the correct status for this operation |
+| `InsufficientFunds`       | Insufficient funds in vault                           |
+| `Overflow`                | Arithmetic overflow                                   |
+| `AlreadyClaimed`          | Payout already claimed                                |
+| `InvalidClaimRecord`      | Claim record does not match expected claimant         |
+| `NothingToClaim`          | Nothing to claim                                      |
+| `NothingToWithdraw`       | Nothing to withdraw                                   |
+| `Unauthorized`            | Unauthorized                                          |
+| `VaultAccountingMismatch` | Vault accounting mismatch                             |
+| `InvalidAuthority`        | Invalid authority                                     |
 
 ## Security
 

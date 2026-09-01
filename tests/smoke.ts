@@ -2,13 +2,7 @@ import { strict as assert } from "node:assert";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { AnchorProvider, BN, Program, Wallet } from "@anchor-lang/core";
-import {
-  Connection,
-  Keypair,
-  PublicKey,
-  SystemProgram,
-  Transaction,
-} from "@solana/web3.js";
+import { Connection, Keypair, PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
 import type { VaultProgram } from "./generated/vault_program";
 
 function requiredEnv(name: string): string {
@@ -49,10 +43,7 @@ async function expectAnchorError(promise: Promise<unknown>, expectedCode: string
   assert.fail(`Expected Anchor error ${expectedCode}`);
 }
 
-async function waitForProgramExecution(
-  request: () => Promise<unknown>,
-  expectedCode: string,
-) {
+async function waitForProgramExecution(request: () => Promise<unknown>, expectedCode: string) {
   for (let attempt = 1; attempt <= 30; attempt++) {
     try {
       await request();
@@ -72,9 +63,7 @@ const walletPath = requiredEnv("TEST_WALLET_PATH");
 const idlPath = requiredEnv("TEST_IDL_PATH");
 const programId = requiredEnv("TEST_PROGRAM_ID");
 const wallet = new Wallet(
-  Keypair.fromSecretKey(
-    new Uint8Array(JSON.parse(readFileSync(walletPath, "utf8"))),
-  ),
+  Keypair.fromSecretKey(new Uint8Array(JSON.parse(readFileSync(walletPath, "utf8")))),
 );
 const connection = new Connection(rpcUrl, "confirmed");
 const provider = new AnchorProvider(connection, wallet, {
@@ -95,11 +84,7 @@ const vaultConfig = PublicKey.findProgramAddressSync(
   program.programId,
 )[0];
 
-async function initVault(
-  id: number[],
-  vaultAuthority: PublicKey,
-  vaultCreator: PublicKey,
-) {
+async function initVault(id: number[], vaultAuthority: PublicKey, vaultCreator: PublicKey) {
   const vault = PublicKey.findProgramAddressSync(
     [Buffer.from("vault"), Buffer.from(id)],
     program.programId,
@@ -124,23 +109,17 @@ function claimRecordPda(vault: PublicKey, claimant: PublicKey): PublicKey {
 }
 
 const unauthorized = Keypair.generate();
-const unauthorizedAirdrop = await connection.requestAirdrop(
-  unauthorized.publicKey,
-  1_000_000_000,
-);
+const unauthorizedAirdrop = await connection.requestAirdrop(unauthorized.publicKey, 1_000_000_000);
 await connection.confirmTransaction(unauthorizedAirdrop, "confirmed");
 const vaultCreator = Keypair.generate();
-const vaultCreatorAirdrop = await connection.requestAirdrop(
-  vaultCreator.publicKey,
-  1_000_000_000,
-);
+const vaultCreatorAirdrop = await connection.requestAirdrop(vaultCreator.publicKey, 1_000_000_000);
 await connection.confirmTransaction(vaultCreatorAirdrop, "confirmed");
 
 await waitForProgramExecution(
   () =>
     program.methods
       .initializeVaultConfig(vaultCreator.publicKey)
-    .accountsPartial({
+      .accountsPartial({
         vaultConfig,
         authority: unauthorized.publicKey,
         program: program.programId,
@@ -188,10 +167,7 @@ await program.methods
   .rpc();
 
 const vaultConfigAccount = await program.account.vaultConfig.fetch(vaultConfig);
-assert.equal(
-  vaultConfigAccount.vaultCreator.toBase58(),
-  vaultCreator.publicKey.toBase58(),
-);
+assert.equal(vaultConfigAccount.vaultCreator.toBase58(), vaultCreator.publicKey.toBase58());
 
 const zeroId = new Array<number>(32).fill(0);
 const zeroVault = await initVault(zeroId, wallet.publicKey, vaultCreator.publicKey);
@@ -206,10 +182,7 @@ const unauthorizedVault = await initVault(
   operationalAuthority.publicKey,
   unauthorized.publicKey,
 );
-await expectAnchorError(
-  unauthorizedVault.request.signers([unauthorized]).rpc(),
-  "Unauthorized",
-);
+await expectAnchorError(unauthorizedVault.request.signers([unauthorized]).rpc(), "Unauthorized");
 
 const id = vaultId("local-smoke-test");
 const { vault, request: initRequest } = await initVault(
@@ -254,7 +227,6 @@ assert.equal(
   (await program.account.vault.fetch(vault)).authority.toBase58(),
   wallet.publicKey.toBase58(),
 );
-
 
 await expectAnchorError(
   program.methods
@@ -333,16 +305,10 @@ await program.methods
 let vaultAccount = await program.account.vault.fetch(vault);
 assert.equal(vaultAccount.totalDeposited.toString(), "1000000000");
 
-await program.methods
-  .closeVault()
-  .accountsPartial({ vault, authority: wallet.publicKey })
-  .rpc();
+await program.methods.closeVault().accountsPartial({ vault, authority: wallet.publicKey }).rpc();
 
 await expectAnchorError(
-  program.methods
-    .closeVault()
-    .accountsPartial({ vault, authority: wallet.publicKey })
-    .rpc(),
+  program.methods.closeVault().accountsPartial({ vault, authority: wallet.publicKey }).rpc(),
   "InvalidVaultStatus",
 );
 
@@ -524,6 +490,4 @@ await program.methods
 assert.equal(await program.account.claimRecord.fetchNullable(claimRecord), null);
 assert.equal(await program.account.vault.fetchNullable(vault), null);
 
-console.log(
-  "  ✓ Authorization, validation, accounting, lifecycle, and cleanup checks passed",
-);
+console.log("  ✓ Authorization, validation, accounting, lifecycle, and cleanup checks passed");

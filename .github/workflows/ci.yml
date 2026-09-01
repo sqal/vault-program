@@ -124,12 +124,11 @@ jobs:
             ~/.cargo/git/db
             ~/.bun/install/cache
             target/local-test-cache
-          key: integration-${{ runner.os }}-rust-${{ env.RUST_VERSION }}-anchor-${{ env.ANCHOR_VERSION }}-solana-${{ env.SOLANA_VERSION }}-${{ hashFiles('Cargo.lock', 'tests/bun.lock') }}
+          key: integration-${{ runner.os }}-rust-${{ env.RUST_VERSION }}-anchor-${{ env.ANCHOR_VERSION }}-solana-${{ env.SOLANA_VERSION }}-${{ hashFiles('Cargo.lock', 'bun.lock') }}
           restore-keys: |
             integration-${{ runner.os }}-rust-${{ env.RUST_VERSION }}-anchor-${{ env.ANCHOR_VERSION }}-solana-${{ env.SOLANA_VERSION }}-
 
       - name: Install test dependencies
-        working-directory: tests
         run: bun install --frozen-lockfile
 
       - name: Run integration test

@@ -168,9 +168,7 @@ import { address, getProgramDerivedAddress, getAddressEncoder } from "@solana/ki
 const PROGRAM_ID = address("YOUR_DEPLOYED_PROGRAM_ID");
 
 async function vaultIdFromString(value: string): Promise<Uint8Array> {
-  return new Uint8Array(
-    await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)),
-  );
+  return new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)));
 }
 
 async function vaultPDA(vaultId: Uint8Array) {
