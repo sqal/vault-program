@@ -3,7 +3,8 @@
 ## Prerequisites
 
 - [Anchor CLI](https://www.anchor-lang.com/docs/installation) v1.1.2
-- [Solana CLI](https://docs.solanalabs.com/cli/install) v1.18+
+- [Solana CLI](https://docs.solanalabs.com/cli/install) v3.1.14
+- Rust 1.89.0
 
 On Windows, use WSL 2. Install the required tools and run the entire deployment
 workflow from a WSL terminal.
@@ -45,7 +46,7 @@ used by Anchor clients.
 ./scripts/deploy.sh
 
 # Deploy to mainnet-beta
-./scripts/deploy.sh mainnet
+CONFIRM_MAINNET=1 ./scripts/deploy.sh mainnet
 
 # With custom keypair
 ./scripts/deploy.sh devnet path/to/keypair.json
@@ -54,6 +55,10 @@ used by Anchor clients.
 RPC_URL=https://api.devnet.solana.com WALLET=~/.config/solana/id.json \
   ./scripts/deploy.sh devnet
 ```
+
+The script uses one resolved wallet for both the `solana` deployment command
+and Anchor IDL publication. A mainnet genesis hash requires
+`CONFIRM_MAINNET=1`, even when using a custom RPC URL.
 
 ## Multiple Environments
 
@@ -77,7 +82,9 @@ clusters.
 
 ## Program Upgrades
 
-The deploy wallet becomes the **upgrade authority** — the same key required by `init_vault`.
+The deploy wallet becomes the **upgrade authority** — the same key required by
+`init_vault`. Do not remove the upgrade authority while this program relies on
+it to authorize vault creation.
 
 ```bash
 solana program set-upgrade-authority <PROGRAM_ID> \

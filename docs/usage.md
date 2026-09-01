@@ -56,18 +56,18 @@ const [vaultPk] = vaultPDA(vaultId);
 const [programData] = programDataPDA(program.programId);
 await program.methods
   .initVault(vaultId)
-  .accounts({ programData })
+  .accountsPartial({ programData })
   .rpc();
 
 // The vault account is explicit after initialization.
 await program.methods
   .deposit(new BN(1_000_000_000))
-  .accounts({ vault: vaultPk })
+  .accountsPartial({ vault: vaultPk })
   .rpc();
 
 await program.methods
   .closeVault()
-  .accounts({ vault: vaultPk })
+  .accountsPartial({ vault: vaultPk })
   .rpc();
 
 const claimantKeypair = Keypair.generate();
@@ -78,12 +78,12 @@ const [claimRecordPk] = PublicKey.findProgramAddressSync(
 );
 await program.methods
   .setClaimable(new BN(500_000_000))
-  .accounts({ vault: vaultPk, claimant })
+  .accountsPartial({ vault: vaultPk, claimant })
   .rpc();
 
 await program.methods
   .claim()
-  .accounts({ vault: vaultPk, recipient: claimant })
+  .accountsPartial({ vault: vaultPk, recipient: claimant })
   .rpc();
 
 // ── Fetch state before cleanup closes the accounts ─────────
@@ -101,23 +101,23 @@ console.log(
 
 await program.methods
   .withdraw(new BN(300_000_000))
-  .accounts({ vault: vaultPk, destination: wallet.publicKey })
+  .accountsPartial({ vault: vaultPk, destination: wallet.publicKey })
   .rpc();
 
 await program.methods
   .withdrawAll()
-  .accounts({ vault: vaultPk, destination: wallet.publicKey })
+  .accountsPartial({ vault: vaultPk, destination: wallet.publicKey })
   .rpc();
 
 await program.methods
   .cleanupVault()
-  .accounts({ vault: vaultPk, destination: wallet.publicKey })
+  .accountsPartial({ vault: vaultPk, destination: wallet.publicKey })
   .rpc();
 
 // cleanup_claim_record is vault-independent.
 await program.methods
   .cleanupClaimRecord()
-  .accounts({ claimRecord: claimRecordPk, signer: claimant })
+  .accountsPartial({ claimRecord: claimRecordPk, signer: claimant })
   .signers([claimantKeypair])
   .rpc();
 

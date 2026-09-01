@@ -22,8 +22,8 @@ Built with [Anchor](https://www.anchor-lang.com/) framework.
 ### Requirements
 
 - Anchor CLI 1.1.2
-- Solana CLI 1.18 or newer
-- Rust and Cargo
+- Solana CLI 3.1.14
+- Rust 1.89.0 and Cargo
 - Bun (for the integration test)
 
 Windows is supported through WSL 2. Install the requirements and run all build,
@@ -49,7 +49,8 @@ bun run test
 The test requires Anchor CLI, Solana CLI, `solana-test-validator`, and Bun.
 Compiled dependencies are cached under the ignored `target/local-test-cache/`
 directory; temporary IDs, keypairs, and validator data are still deleted after
-every run.
+every run. To retain a failed run's build and validator logs for diagnosis, run
+`VAULT_TEST_KEEP_ARTIFACTS=1 bun run test`.
 
 ## How It Works
 
@@ -64,7 +65,7 @@ every run.
 | `status`           | `VaultStatus`| Current lifecycle state           |
 | `total_deposited`  | `u64`        | Cumulative lamports deposited     |
 | `total_claimed`    | `u64`        | Cumulative lamports claimed       |
-| `total_withdrawn`  | `u64`        | Cumulative lamports withdrawn     |
+| `total_withdrawn`  | `u64`        | Withdrawals counted against tracked deposits |
 | `bump`             | `u8`         | PDA bump seed                     |
 
 **Space:** 98 bytes (8 + 32 + 32 + 1 + 8 + 8 + 8 + 1)
@@ -174,7 +175,10 @@ Authority withdraws all available SOL (above rent-exempt minimum) from the vault
 
 ### `cleanup_vault()`
 
-Closes the vault account and gets rent back. All payouts need to be settled first (`total_deposited == total_claimed + total_withdrawn`). Any leftover dust is drained before closing.
+Closes the vault account and gets rent back. The tracked deposited balance must
+be settled first (`total_deposited == total_claimed + total_withdrawn`). Claim
+records do not reserve funds, so unclaimed records do not block vault cleanup.
+Any unsolicited SOL dust is drained before closing.
 
 - **Signer:** `authority` (vault authority)
 - **Accounts:** vault (mut, close → destination), authority, destination (mut)

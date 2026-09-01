@@ -2,6 +2,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=lib/disposable-build.sh
+source "$ROOT/scripts/lib/disposable-build.sh"
 
 CLUSTER="${1:-devnet}"
 KEYPAIR="${2:-$ROOT/target/deploy/vault_program-keypair.json}"
@@ -22,7 +24,9 @@ cleanup() {
 
   exit "$status"
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 for command in anchor solana solana-keygen; do
   if ! command -v "$command" >/dev/null 2>&1; then
@@ -54,19 +58,33 @@ else
   esac
 fi
 
-SOLANA_URL_ARGS=(--url "$RPC_TARGET")
-SOLANA_WALLET_ARGS=()
-ANCHOR_PROVIDER_ARGS=(--provider.cluster "$RPC_TARGET")
-if [[ -n "$WALLET" ]]; then
-  SOLANA_WALLET_ARGS=(--keypair "$WALLET")
-  ANCHOR_PROVIDER_ARGS+=(--provider.wallet "$WALLET")
+GENESIS_HASH="$(solana genesis-hash --url "$RPC_TARGET")"
+MAINNET_GENESIS_HASH="5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"
+if [[ "$GENESIS_HASH" == "$MAINNET_GENESIS_HASH" && "${CONFIRM_MAINNET:-}" != "1" ]]; then
+  echo "Error: refusing mainnet deployment without CONFIRM_MAINNET=1" >&2
+  echo "Re-run only after review: CONFIRM_MAINNET=1 $0 $CLUSTER $KEYPAIR" >&2
+  exit 1
 fi
+
+if [[ -z "$WALLET" ]]; then
+  WALLET="$(solana config get | sed -n 's/^Keypair Path: //p')"
+fi
+if [[ -z "$WALLET" || ! -f "$WALLET" ]]; then
+  echo "Error: deployment wallet keypair not found: ${WALLET:-<not configured>}" >&2
+  echo "Set WALLET=/path/to/wallet.json or configure Solana CLI." >&2
+  exit 1
+fi
+
+SOLANA_URL_ARGS=(--url "$RPC_TARGET")
+SOLANA_WALLET_ARGS=(--keypair "$WALLET")
+ANCHOR_PROVIDER_ARGS=(--provider.cluster "$RPC_TARGET" --provider.wallet "$WALLET")
 
 echo "Cluster     : $CLUSTER"
 echo "Program ID  : $PROGRAM_ID"
 echo "Keypair     : $KEYPAIR"
-echo "Wallet      : ${WALLET:-<solana config default>}"
+echo "Wallet      : $WALLET"
 echo "RPC         : $RPC_TARGET"
+echo "Genesis hash: $GENESIS_HASH"
 echo ""
 
 echo "Building from a disposable copy..."
@@ -74,23 +92,7 @@ BUILD_TMP="$(mktemp -d "${TMPDIR:-/tmp}/vault-program-deploy.XXXXXX")"
 BUILD_REPO="$BUILD_TMP/repo"
 BUILD_CACHE="$ROOT/target/deploy-build-cache"
 
-mkdir -p \
-  "$BUILD_REPO/programs/vault-program/src" \
-  "$BUILD_REPO/target/deploy" \
-  "$BUILD_CACHE/debug" \
-  "$BUILD_CACHE/release" \
-  "$BUILD_CACHE/sbpf-solana-solana"
-ln -s "$BUILD_CACHE/debug" "$BUILD_REPO/target/debug"
-ln -s "$BUILD_CACHE/release" "$BUILD_REPO/target/release"
-ln -s "$BUILD_CACHE/sbpf-solana-solana" "$BUILD_REPO/target/sbpf-solana-solana"
-
-cp "$ROOT/Anchor.toml" "$BUILD_REPO/Anchor.toml"
-cp "$ROOT/Cargo.toml" "$BUILD_REPO/Cargo.toml"
-cp "$ROOT/Cargo.lock" "$BUILD_REPO/Cargo.lock"
-cp "$ROOT/programs/vault-program/Cargo.toml" \
-  "$BUILD_REPO/programs/vault-program/Cargo.toml"
-cp "$ROOT/programs/vault-program/src/lib.rs" \
-  "$BUILD_REPO/programs/vault-program/src/lib.rs"
+prepare_disposable_workspace "$ROOT" "$BUILD_REPO" "$BUILD_CACHE"
 cp "$KEYPAIR" "$BUILD_REPO/target/deploy/vault_program-keypair.json"
 
 (
