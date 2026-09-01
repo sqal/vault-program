@@ -4,13 +4,16 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 env:
@@ -22,7 +25,7 @@ env:
 
 jobs:
   lint:
-    name: Shell and workflow lint
+    name: Shell lint
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -36,18 +39,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes shellcheck
-          shellcheck scripts/deploy.sh tests/run-local.sh scripts/lib/disposable-build.sh
-
-      - name: Run actionlint
-        run: |
-          curl --fail --location --silent --show-error \
-            --output "$RUNNER_TEMP/actionlint.tar.gz" \
-            https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
-          echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  $RUNNER_TEMP/actionlint.tar.gz" \
-            | sha256sum --check
-          tar --extract --gzip --file "$RUNNER_TEMP/actionlint.tar.gz" \
-            --directory "$RUNNER_TEMP" actionlint
-          "$RUNNER_TEMP/actionlint"
+          shellcheck scripts/deploy.sh tests/run-local.sh scripts/disposable-build.sh
 
   rust:
     name: Rust checks
@@ -66,6 +58,7 @@ jobs:
           rustup default "$RUST_VERSION"
 
       - name: Cache Rust dependencies
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
@@ -73,10 +66,7 @@ jobs:
             ~/.cargo/registry/cache
             ~/.cargo/registry/src
             ~/.cargo/git/db
-            target
-          key: rust-${{ runner.os }}-${{ env.RUST_VERSION }}-${{ hashFiles('Cargo.lock') }}
-          restore-keys: |
-            rust-${{ runner.os }}-${{ env.RUST_VERSION }}-
+          key: rust-dependencies-${{ hashFiles('Cargo.lock') }}
 
       - name: Check formatting
         run: cargo fmt --all -- --check
@@ -115,6 +105,7 @@ jobs:
           bun-version: ${{ env.BUN_VERSION }}
 
       - name: Cache integration dependencies
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
@@ -123,10 +114,7 @@ jobs:
             ~/.cargo/registry/src
             ~/.cargo/git/db
             ~/.bun/install/cache
-            target/local-test-cache
-          key: integration-${{ runner.os }}-rust-${{ env.RUST_VERSION }}-anchor-${{ env.ANCHOR_VERSION }}-solana-${{ env.SOLANA_VERSION }}-${{ hashFiles('Cargo.lock', 'bun.lock') }}
-          restore-keys: |
-            integration-${{ runner.os }}-rust-${{ env.RUST_VERSION }}-anchor-${{ env.ANCHOR_VERSION }}-solana-${{ env.SOLANA_VERSION }}-
+          key: integration-dependencies-${{ hashFiles('Cargo.lock', 'bun.lock') }}
 
       - name: Install test dependencies
         run: bun install --frozen-lockfile

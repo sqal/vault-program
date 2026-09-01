@@ -2,8 +2,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-# shellcheck source=../scripts/lib/disposable-build.sh
-source "$ROOT/scripts/lib/disposable-build.sh"
+# shellcheck source=scripts/disposable-build.sh
+source "$ROOT/scripts/disposable-build.sh"
 MODE="${1:-test}"
 TEST_TMP="$(mktemp -d "${TMPDIR:-/tmp}/vault-program-test.XXXXXX")"
 TEST_REPO="$TEST_TMP/repo"

@@ -2,8 +2,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-# shellcheck source=lib/disposable-build.sh
-source "$ROOT/scripts/lib/disposable-build.sh"
+# shellcheck source=scripts/disposable-build.sh
+source "$ROOT/scripts/disposable-build.sh"
 
 CLUSTER="${1:-devnet}"
 KEYPAIR="${2:-$ROOT/target/deploy/vault_program-keypair.json}"
